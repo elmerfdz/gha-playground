@@ -37,8 +37,8 @@ jobs:
       run: |
         docker buildx build \
         --platform linux/amd64,linux/arm64,linux/arm/v7 \
-        -t $DOCKER_USER/image:latest \
-        -t $DOCKER_USER/image:latest-$GITHUB_SHA_SHORT \
+        -t $DOCKER_USER/ghactest:latest \
+        -t $DOCKER_USER/ghactest:latest-$GITHUB_SHA_SHORT \
         --push .
 
     - name: Clean up
