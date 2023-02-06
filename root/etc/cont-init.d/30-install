@@ -1,0 +1,180 @@
+#!/usr/bin/with-contenv bash
+chmod +x /app/Rebuild-DNDC/*
+cp /app/Rebuild-DNDC/rebuild /bin
+cp /app/Rebuild-DNDC/rebuildm /bin
+
+printf "
+----------------------------------------------------
+
+██████╗ ██████╗ ███╗   ██╗██████╗  ██████╗
+██╔══██╗██╔══██╗████╗  ██║██╔══██╗██╔════╝
+██████╔╝██║  ██║██╔██╗ ██║██║  ██║██║
+██╔══██╗██║  ██║██║╚██╗██║██║  ██║██║
+██║  ██║██████╔╝██║ ╚████║██████╔╝╚██████╗
+
+Author: https://github.com/elmerfdz
+Support: https://github.com/elmerfdz/unRAIDscripts
+----------------------------------------------------"
+echo
+echo '[------------------ CONFIG CHECK ------------------]'
+echo
+#[---------- DISCORD WEBHOOK ----------]
+if [ -z "$discord_url" ]
+then
+  echo '- Discord webhook not set'
+  WEBHOOK=""
+else
+  echo '- Discord webhook set'
+  WEBHOOK="-d $discord_url"
+fi
+
+#[---------- DISCORD NOTIFICATIONS ----------]
+if [ "$discord_notifications" == "yes" ]
+then
+  echo '- Discord notifications enabled'
+else
+  echo '- Discord notifications disabled'
+  discord_notifications="no"
+fi
+
+#[----------  MASTER container name ----------]
+if [ -z "$mastercontname" ]
+then
+  echo "- Master container name not set, exiting"
+  exit 1
+else
+  echo "- Master container name set: $mastercontname"
+fi
+
+#[---------- PING COUNT ----------]
+if [ -z "$ping_count" ]
+then
+  echo "- Ping count not set, default - 4"
+  ping_count='4'
+else
+  echo "- Ping count specified: $ping_count"
+fi
+
+#[---------- PING IP ----------]
+if [ -z "$ping_ip" ]
+then
+  echo "- Ping IP not set, default - 1.1.1.1"
+  ping_ip='1.1.1.1'
+else
+  echo "- Ping IP specified: $ping_ip"
+fi
+
+#[---------- PING IP ALT----------]
+if [ -z "$ping_ip_alt" ]
+then
+  echo "- Ping IP alt not set, default - 8.8.8.8"
+  ping_ip_alt='8.8.8.8'
+else
+  echo "- Ping IP alt set: $ping_ip_alt"
+fi
+
+#[---------- MASTER CONTAINER CONNECTIVITY ----------]
+if [ "$mastercontconcheck" == "yes" ] 
+then
+    echo '- Master container connectivity check enabled'
+elif [ "$mastercontconcheck" == "no" ]
+then  
+    echo '- Master container connectivity check disabled' 
+else
+  echo '- Master container connectivity check not set, enabled by default'
+  mastercontconcheck='yes'
+fi
+
+#[---------- SLEEP SECONDS ----------]
+if [ -z "$sleep_secs" ]
+then
+    echo "- Sleep secs not set after $mastercontname container restart, default - 10"
+    sleep_secs='10'
+else
+    echo "- Sleep secs set: $sleep_secs"
+fi
+
+#[---------- CRON SCHEDULE ----------]
+if [ -z "$cron" ]
+then
+  echo 'No CRON schedule set, default CRON - 5 2,11 * * *'
+  CRON='5 2,11 * * *'
+else
+  echo "- CRON schedule set: $cron"
+fi
+
+#[---------- Save number of master contaienr IDs----------]
+if [ -z "$save_no_masterids" ]
+then
+  echo "- Save no of master cotnainer IDs, default - 5"
+  save_no_masterids='5'
+else
+  echo "- Save no of master cotnainer IDs: $save_no_masterids"
+fi
+
+#[---------- Save number of master contaienr IDs----------]
+if [ -z "$cont_list" ]
+then
+  echo "- No containers set for manual run"
+  cont_list='none'
+else
+  echo "- List of containers to build on manual run: $cont_list"
+fi
+
+#[---------- RUN AT STARTUP ----------]
+if [ "$run_startup" == "yes" ]
+then
+  echo '- Run at startup: yes'
+else
+  echo '- Run at startup: no'
+fi
+
+#[---------- VARIABLES IN USE DISCORD NOTIFICATION ----------]
+if [ "$discord_notifications" == "yes" ]
+then
+  ./discord-notify.sh \
+  --webhook-url=$discord_url \
+  --username "$discord_username" \
+  --avatar "$rdndc_logo" \
+  --title "VARIABLES IN USE" \
+  --description "- Master Container Name:- $mastercontname\n- Master Cont Con Check:- $mastercontconcheck\n- Ping IP:- $ping_ip\n- Ping IP Alt:- $ping_ip_alt\n- Ping Count:- $ping_count\n- Sleep Seconds:- $sleep_secs\n- Cron Schedule:- $cron\n- Save no of Master Container IDs:- $save_no_masterids\n- Manual Run Container List:- $cont_list\n- Run at Startup:- $run_startup\n- Appdata Folder:- $mastercontepfile_loc\n- DockerTemplate Folder:- $docker_tmpl_loc\n- ParseDockerTemplate Script:- $rundockertemplate_script" \
+  --color "0x66ff33" \
+  --author-icon "$rdndc_logo" \
+  --footer-icon "$rdndc_logo"  &> /dev/null
+  echo "- Pushed first notification to Discord"  
+fi
+
+#[---------- VARIABLES IN USE GOTIFY NOTIFICATION ----------]
+if [ "$gotify_notifications" == "yes" ]
+then
+  curl -X POST "$gotify_url" -F "title=Rebuild-dndc" -F "message=Variables In Use
+  - Master Container Name:- $mastercontname
+  - Master Cont Con Check:- $mastercontconcheck
+  - Ping IP:- $ping_ip
+  - Ping IP Alt:- $ping_ip_alt
+  - Ping Count:- $ping_count
+  - Sleep Seconds:- $sleep_secs
+  - Cron Schedule:- $cron
+  - Save no of Master Container IDs:- $save_no_masterids
+  - Manual Run Container List:- $cont_list
+  - Run at Startup:- $run_startup
+  - Appdata Folder:- $mastercontepfile_loc
+  - DockerTemplate Folder:- $docker_tmpl_loc
+  - ParseDockerTemplate Script:- $rundockertemplate_script
+  " -F "priority=5" &> /dev/null
+  echo "- Pushed first notification to Gotify server"  
+fi
+
+#[---------- CRON JOB SETUP ----------]
+echo "$cron   cd /app/Rebuild-DNDC && bash Rebuild-DNDC.sh " > /etc/crontabs/root
+echo '- CRON job has been set'
+#[---------- RUN AT STARTUP ----------]
+if [ "$run_startup" == "yes" ]
+then
+  echo '- Running at startup now...'
+  cd $app_dir && bash Rebuild-DNDC.sh
+fi
+echo
+echo '- Starting CRON service now...'
+crond -l 2 -f
+echo

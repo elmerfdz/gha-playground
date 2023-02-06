@@ -1,96 +1,53 @@
-# [eafxx/bind](https://hub.docker.com/r/eafxx/bind)
+# [eafxx/rebuild-dndc](https://hub.docker.com/r/eafxx/rebuild-dndc)
+Re-create containers that use another container's network stack (e.g. routing container traffic through a VPN container).
 
-A fork of [sameersbn/bind](https://github.com/sameersbn/docker-bind) repo, what's different?
-- Multiarch Support: 
-  * amd64
-  * armv7, arm64 i.e. supports RPi 3/4
-- Running on Ubuntu Hirsute
-- Bind: 9.16.8
-- Webmin: Always pulls latest (during image build)
-- Added Timezone (TZ) support
-- Image auto-builds on schedule (every Sat 00:00 BST)
-- Ubuntu updates will be applied during each scheduled build
-- Reverse Proxy friendly ([utkuozdemir/docker-bind](https://github.com/utkuozdemir/docker-bind/tree/webmin-reverse-proxy-config))
-- Fixes to [utkuozdemir/docker-bind](https://github.com/utkuozdemir/docker-bind/tree/webmin-reverse-proxy-config)'s 'Reverse Proxy friendly' update. 
-  * Cleanup of config & miniserv.conf when variables are used & then removed
-  * Removing duplicate entries to config & miniserv.conf
-- Allow bind log to file ([WindoC/docker-bind](https://github.com/WindoC/docker-bind/tree/patch-1))
- 
-## Contents
-- [Introduction](#introduction)
-- [Getting started](#getting-started)
-  - [Installation](#installation)
-  - [Quickstart](#quickstart)
+* RDNDC will monitor the master container during container re-creation/updates/reboots/host reboots and rebuilds dependent containers using the master container's network stack.
+* Any containers using the master container network stack will be auto added to the watch list. 
+* Monitor master container's WAN connectivity, reboots master container if network is down.
+* Only supported on unRAID at the moment.
 
-# Introduction
+## Prerequisites
+1. Make sure the master container (e.g. vpn container) is up & running as expected.
+2. Create a docker network named container:master_container_name , to do that, do the following:
+   open terminal > `docker network create container:master_container_name`  note: master container name should be all lower case, rename your container if it isn't. 
+3. Now edit a container you want to add to the master container network stack
+4. You should see the created network (step 2) under 'network type', select that & click 'apply'. 
 
-Docker container image for [BIND](https://www.isc.org/downloads/bind/) DNS server bundled with the [Webmin](http://www.webmin.com/) interface.
+![image](https://user-images.githubusercontent.com/22656503/68093132-3b93e180-fe8a-11e9-8ab8-06934fad3358.png)
 
-BIND is open source software that implements the Domain Name System (DNS) protocols for the Internet. It is a reference implementation of those protocols, but it is also production-grade software, suitable for use in high-volume and high-reliability applications.
+**OR** 
 
-# Getting started
+Alternate steps
+
+2. Edit a container you want to add to the master container network stack, 
+3. Add `--net=container:master_container_name` in extra parameters and 
+4. click 'apply' 
+
+## Docker
 
 **Tags**
 
 | Tag      | Description                          | Build Status                                                                                                | 
 | ---------|--------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| latest | master/stable                 | ![Docker Build Master](https://github.com/elmerfdz/docker-bind/workflows/Docker%20Build%20Master/badge.svg)  | 
-| dev | development, pre-release      | ![Docker Build Dev](https://github.com/elmerfdz/docker-bind/workflows/Docker%20Build%20Dev/badge.svg)     |
-| exp | unstable, experimental        | ![Docker Build Exp](https://github.com/elmerfdz/docker-bind/workflows/Docker%20Build%20Exp/badge.svg)   | 
+| unraid-m | Unraid stable                 | ![Docker Build Master](https://github.com/elmerfdz/unRAIDscripts/workflows/Docker%20Build%20Master/badge.svg)  | 
+| unraid-d | Unraid development, pre-release      | ![Docker Build Dev](https://github.com/elmerfdz/unRAIDscripts/workflows/Docker%20Build%20Dev/badge.svg)     |
+| unraid-e | Unraid  experimental, unstable        | ![Docker Build Exp](https://github.com/elmerfdz/unRAIDscripts/workflows/Docker%20Build%20Exp/badge.svg)     | 
 
-## Installation
+**Community Applications (unRAID) - recommended** 
 
-Automated builds of the image are available on [Dockerhub](https://hub.docker.com/r/eafxx/bind) and is the recommended method of installation.
+1. Open the 'Apps' tab and 
+2. Search for 'rebuild-dndc' 
+3. Click on the Install button
 
-```bash
-docker pull eafxx/bind
-```
-OR
+![ca](https://i.imgur.com/kpNEgGw.png)
 
-Alternatively you can build the image yourself.
 
-```bash
-docker build -t eafxx/bind github.com/eafxx/docker-bind
-```
-
-## Quickstart
-
-Docker Run:
-
-```bash
-docker run --name bind -d --restart=always \
-  -p 53:53/tcp -p 53:53/udp -p 10000:10000/tcp \
-  -v /path/to/bind/data:/data \
-  eafxx/bind
-```
-
-OR
-
-Docker Compose
+**Docker Run** 
 
 ```
-    bind:
-        container_name: bind
-        hostname: bind
-        network_mode: bridge
-        image: eafxx/bind
-        restart: unless-stopped
-        ports:
-            - "53:53/tcp"
-            - "53:53/udp"
-            - 10000:10000/tcp
-        volumes:
-            - /path/to/bind/data:/data
-        environment:
-            - WEBMIN_ENABLED=true
-            - WEBMIN_INIT_SSL_ENABLED=false
-            - WEBMIN_INIT_REFERERS=dns.domain.com
-            - WEBMIN_INIT_REDIRECT_PORT=10000
-            - ROOT_PASSWORD=password
-            - TZ=Europe/London
-```
+docker run -d --name='Rebuild-DNDC' --net='bridge' -e TZ="Europe/London" -e HOST_OS="Unraid" -e 'mastercontname'='vpn' -e 'mastercontconcheck'='yes' -e 'ping_ip'='1.1.1.1' -e 'ping_ip_alt'='8.8.8.8' -e 'ping_count'='4' -e 'sleep_secs'='10' -e 'run_startup'='yes' -e 'discord_notifications'='yes' -e 'discord_url'='https://discordapp.com/api/webhooks/xxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxx' -e 'cron'='*/5 * * * *' -v '/var/run/docker.sock':'/var/run/docker.sock':'rw' -v '/boot/config/plugins/dockerMan/templates-user':'/config/docker-templates':'ro' -v '/mnt/appdata/rebuild-dndc/config/rebuild-dndc':'/config/rebuild-dndc':'rw' 'eafxx/rebuild-dndc:unraid-m' 
 
-When the container is started the [Webmin](http://www.webmin.com/) service is also started and is accessible from the web browser at https://serverIP:10000. Login to Webmin with the username `root` and password `password`. Specify `--env ROOT_PASSWORD=secretpassword` on the `docker run` command to set a password of your choosing. The launch of Webmin can be disabled if not required. 
+```
 
 ### - Parameters
 
@@ -98,15 +55,88 @@ Container images are configured using parameters passed at runtime (such as thos
 
 | Parameter | Function |
 | :----: | --- |
-| `-p 53:53/tcp` `-p 53:53/udp` | DNS TCP/UDP port|
-| `-p 10000/tcp` | Webmin port |
-| `-e WEBMIN_ENABLED=true` | Enable/Disable Webmin (true/false) |
-| `-e ROOT_PASSWORD=password` | Set a password for Webmin root. Parameter has no effect when the launch of Webmin is disabled.  |
-| `-e WEBMIN_INIT_SSL_ENABLED=false` | Enable/Disable Webmin SSL (true/false). If Webmin should be served via SSL or not. Defaults to `true`. |
-| `-e WEBMIN_INIT_REFERERS` | Enable/Disable Webmin SSL (true/false). Sets the allowed referrers to Webmin. Set this to your domain name of the reverse proxy. Example: `mywebmin.example.com`. Defaults to empty (no referrer)|
-| `-e WEBMIN_INIT_REDIRECT_PORT` | The port Webmin is served from. Set this to your reverse proxy port, such as `443`. Defaults to `10000`. |
-| `-e WEBMIN_INIT_REDIRECT_SSL` | Enable/Disable Webmin SSL redirection after login (true/false). Set this to `true` if behind a SSL terminator. Defaults to `false`|
-| `-e BIND_EXTRA_FLAGS` | Default set to -g |
-| `-e BIND_LOG_STDERR` | Default set to false. To allow bind log to file, that makes bind not force all log to STDERR |
-| `-v /data` | Mount data directory for persistent config  |
+| `-e mastercontname=vpn` | Master container name, replace this with your master container name|
+| `-e mastercontconcheck=yes` | Check for master container connectivity & reboot container if no connectivity [yes/no] |
+| `-e ping_count=4` | Number of times you want to ping the ping_ip before the script restarts the master container due to no connectivity, lower number might be too aggressive - default 4 |
+| `-e ping_ip=1.1.1.1` | Default ping IP to check master container connectivity |
+| `-e ping_ip_alt=8.8.8.8` | Secondary ping IP to check master container connectivity (optional) |
+| `-e sleep_secs=10` | Time to wait until the master container has completely booted up - default 10s |
+| `-e cron=*/5 * * * *` | Cron schedule set to run every 5mins  - default 5mins|
+| `-e run_startup=yes` | Do a first run immediately without waiting [yes/no] |
+| `-e discord_notifications=yes` | Enable Discord notifications [yes/no] |
+| `-e gotify_notifications=yes` | Enable Gotify notifications [yes/no] |
+| `-e discord_url` | Full Discord webhook URL, only required if notifications are enabled |
+| `-e gotify_url` | Full Gotify server message URL + token, only required if notifications are enabled |
+| `-v /config/docker-templates` | Path to user docker templates on Unraid (read-only) |
+| `-v /var/run/docker.sock` | Docker-daemon socket location |
+| `-v /config/rebuild-dndc` | Contains container monitor list. |
 | `-e TZ=Europe/London` | Specify a timezone to use e.g. Europe/London |
+
+### - Additional Optional Parameters
+
+| Parameter | Function |
+| :----: | --- |
+| `-e cont_list=ContainerA ContainerB` | Specify a list of containers that you can manually rebuild on demand using the rebuildm -b & rebuildm -f commands ([see below](https://github.com/elmerfdz/unRAIDscripts#--create-dependent-containers-manually)). Container names are case sensitive & leave space between each container name.  |
+| `-e save_no_mcontids=20` | Default set to 20, maintains a list of last 20 master containerIDs when the container is destroyed or re-created. Makes sure containers using the master container network aren't orphaned and marked for re-creation.  |
+
+### - Port Forwarding Optional Parameters
+
+#### Supported Apps
+* ruTorrent
+
+#### Requirements
+* VPN image: [qmcgaw/gluetun](https://github.com/qdm12/gluetun) (Supports PIA, Mullvad, Windscribe and others)
+
+| Parameter | Function |
+| :----: | --- |
+| `-e rutorrent_cont_name=ruTorrent` | ruTorrent container name (case sensitive) |
+| `-e rutorrent_pf=yes` | Enable ruTorrent Port Forwarding |
+| `-v /app/pf/rutorrent/` | Path to ruTorrent `rtorrent.rc` or `.rtorrent.rc` file without specifying file name |
+
+### - Create dependent containers manually
+
+If for some reason master container dependent containers have failed to be **created**, you can start several containers using a single command, which is far more convenient than doing it through the unRAID GUI.
+
+Interactive Shell
+
+`docker exec -it Rebuild-DNDC bash -c 'rebuildm -b container01 container02 container03'`
+
+`docker exec -it Rebuild-DNDC bash -c 'rebuildm -f container01 container02 container03'`
+
+`docker exec -it Rebuild-DNDC bash -c 'rebuildm -b  $cont_list'`
+
+`docker exec -it Rebuild-DNDC bash -c 'rebuildm -f  $cont_list'`
+
+OR 
+
+SSH onto Rebuild-DNDC container 
+
+`rebuildm -b container01 container02 container03`
+
+`rebuildm -f container01 container02 container03`
+
+`rebuildm -b $cont_list`
+
+`rebuildm -f $cont_list`
+
+* Replace containerXX with the actual containers you want to create (case-sensitive).
+* Manual run is not limited to containers dependent on master container network. As long as the docker template for that container exists, it will create the container.
+* `-b` : Attempts a container rebuild only, if that container already exists, rebuild will be skipped.
+* `-f` : Stop/remove and rebuild containers if it exists or not.
+* `$cont_list` : List of containers that need to rebuild.
+
+## Recommended VPN container
+
+You can use any VPN image you want but the following is recommended and ruTorrent port forwarding with RDNDC is supported with the following image (PIA only!)
+
+[qmcgaw/gluetun](https://github.com/qdm12/gluetun) [Supports PIA, Mullvad, Windscribe and others ]
+
+### Credits
+
+***
+
+- ParseDockerTemplate.sh: author unRAID forum member: skidelo; contributors: Alex R. Berg and eafx; [source](https://forums.unraid.net/topic/40016-start-docker-template-via-command-line)
+
+- Discord notifications: Discord.sh; source: [source](https://github.com/ChaoticWeg/discord.sh)
+
+- Logo: based on the icon made by Pause08 from www.flaticon.com

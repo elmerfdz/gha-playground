@@ -1,48 +1,26 @@
-FROM ubuntu:18.04 AS add-apt-repositories
+FROM alpine:3.11.2
+LABEL MAINTAINER="eafxx"
 
-RUN apt-get update \
- && apt-get upgrade -y \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y gnupg --no-install-recommends \
- && apt-get install -y curl \
- && apt-key adv --fetch-keys https://www.webmin.com/jcameron-key.asc \
- && echo "deb https://download.webmin.com/download/repository sarge contrib" >> /etc/apt/sources.list
+# Prerequisites
+RUN apk add --update docker openrc bash curl libxml2-utils jq tzdata && \ 
+    rc-update add docker boot && \
+    mkdir -p /app/pf
 
-FROM ubuntu:18.04
-LABEL maintainer="eafxx"
+# Setting environment variables
+ENV app_dir="/app/Rebuild-DNDC" \
+    rundockertemplate_script="/app/Rebuild-DNDC/ParseDockerTemplate.sh" \
+    docker_tmpl_loc="/config/docker-templates" \
+    mastercontepfile_loc="/config/rebuild-dndc" \
+    rdndc_logo="https://raw.githubusercontent.com/elmerfdz/unRAIDscripts/master/Rebuild-DNDC/img/rdndc-logo.png" \
+    discord_username="Rebuild-DNDC" \
+    pf_loc=/app/pf \
+    TZ= \
+    cont_list= \
+    gotify_url= 
 
-ENV BIND_USER=bind \
-    BIND_VERSION=9.11.3 \
-    #WEBMIN_VERSION=1.980 \
-    DATA_DIR=/data \
-    WEBMIN_INIT_SSL_ENABLED="" \
-    TZ=""    
+# Add local files
+COPY Rebuild-DNDC/ /app/Rebuild-DNDC
+COPY root/ /
 
-SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
-# hadolint ignore=DL3005,DL3008,DL3008 
-RUN  apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends apt-transport-https ca-certificates \
- && rm -rf /var/lib/apt/lists/*
-
-COPY --from=add-apt-repositories /etc/apt/trusted.gpg /etc/apt/trusted.gpg
-COPY --from=add-apt-repositories /etc/apt/sources.list /etc/apt/sources.list    
-
-RUN rm -rf /etc/apt/apt.conf.d/docker-gzip-indexes \
- && apt-get update \
- && apt-get upgrade -y \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        tzdata \
-        bind9=1:${BIND_VERSION}* bind9-host=1:${BIND_VERSION}* dnsutils \
-        webmin \
-        #webmin=${WEBMIN_VERSION}* \
-&& rm -rf /var/lib/apt/lists/*
-
-COPY entrypoint.sh /sbin/entrypoint.sh
-
-RUN chmod 755 /sbin/entrypoint.sh
-
-EXPOSE 53/udp 53/tcp 10000/tcp
-
-ENTRYPOINT ["/sbin/entrypoint.sh"]
-
-CMD ["/usr/sbin/named"]
+WORKDIR /app/Rebuild-DNDC   
+CMD sh /etc/cont-init.d/30-install
