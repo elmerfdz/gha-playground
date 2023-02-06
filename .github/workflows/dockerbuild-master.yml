@@ -1,44 +1,45 @@
-name: Build and push Docker Image
+name: Docker Build & Push to Dockerhub
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 env:
   GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA_SHORT }}
+  DOCKER_REPO: gha-playground
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      - name: Configure Docker Buildx
+        run: |
+          docker buildx create --use
+          docker buildx inspect --bootstrap
 
-    - name: Build Docker Image
-      env:
-        DOCKER_CLI_EXPERIMENTAL: enabled
-        DOCKER_BUILDKIT: 1
-      run: |
-        docker buildx build \
-        --platform linux/amd64,linux/arm64,linux/arm/v7 \
-        --push \
-        -t "${{ secrets.DOCKER_USER }}/gha-playground:master" \
-        -t "${{ secrets.DOCKER_USER }}/gha-playground:master-$GITHUB_SHA_SHORT" \
-        .
-      
-    - name: Login to DockerHub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKER_USER }}
-        password: ${{ secrets.DOCKER_PWD }}
-        
-    - name: Push to DockerHub
-      uses: docker/push-action@v1
-      with:
-        tags: "${{ secrets.DOCKER_USER }}/gha-playground:master,${{ secrets.DOCKER_USER }}/gha-playground:master-$GITHUB_SHA_SHORT"
+      - name: Build Docker Image
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
+                              -t ${{ env.DOCKER_REPO }}:master \
+                              -t ${{ env.DOCKER_REPO }}:master-${{ env.GITHUB_SHA_SHORT }} \
+                              .
+
+      - name: Login to Dockerhub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PWD }}
+
+      - name: Push Docker Images to Dockerhub
+        run: |
+          docker push ${{ env.DOCKER_REPO }}:master
+          docker push ${{ env.DOCKER_REPO }}:master-${{ env.GITHUB_SHA_SHORT }}
