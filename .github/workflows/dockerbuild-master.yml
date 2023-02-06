@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Docker Build Master
 
 on:
   push:
@@ -9,30 +9,29 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_USER: ${{ secrets.DOCKER_USER }}
-  DOCKER_PWD: ${{ secrets.DOCKER_PWD }}
+  GITHUB_SHA: ${{ github.sha }}
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Setup Docker CLI
-      uses: docker/setup-docker-cli@v2
+    - name: Set up Docker
+      uses: docker/setup-docker@v2
       with:
-        docker-version: latest
+        registry: docker.io
 
-    - name: Login to Docker Hub
-      run: echo "$DOCKER_PWD" | docker login -u "$DOCKER_USER" --password-stdin
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USER }}
+        password: ${{ secrets.DOCKER_PWD }}
 
-    - name: Build Docker Image
+    - name: Build and Push Docker Image
       run: |
-        docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 --tag $DOCKER_USER/image:latest --tag $DOCKER_USER/image:${{ env.GITHUB_SHA }} .
-        
-    - name: Push Docker Image
-      run: |
-        docker push $DOCKER_USER/image:latest
-        docker push $DOCKER_USER/image:${{ env.GITHUB_SHA }}
+        export GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c1-7)
+        docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t ${{ secrets.DOCKER_USER }}/my-image:latest -t ${{ secrets.DOCKER_USER }}/my-image:latest-$GITHUB_SHA_SHORT .
+        docker push ${{ secrets.DOCKER_USER }}/my-image
