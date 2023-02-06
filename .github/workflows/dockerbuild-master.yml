@@ -45,6 +45,10 @@ jobs:
             --build-arg VCS_REF=${{ env.VCS_REF }}
 
       - name: Publish to Docker Hub
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PWD: ${{ secrets.DOCKER_PWD }}         
         run: |
+          echo "${{ secrets.DOCKER_PWD }}" | docker login -u "${{ secrets.DOCKER_USER }}" --password-stdin
           docker push ${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.IMAGE_NAME }}:latest-${{ env.GITHUB_SHA }}
