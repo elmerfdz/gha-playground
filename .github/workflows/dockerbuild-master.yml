@@ -1,22 +1,16 @@
-name: Docker Build and Push
+name: Docker Build
 
 on:
   push:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * 6'
+    - cron: '00 0 * * 6'
   workflow_dispatch:
 
 env:
   GITHUB_SHA: ${{ env.GITHUB_SHA }}
   GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA | cut -c1-7 }}
-
-ignore:
-  paths:
-    - README.md
-    - .github/workflows/*
-    - Dockerfile
 
 jobs:
   build:
@@ -25,26 +19,29 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-
-    - name: Docker Login
-      uses: docker/login-action@v1
       with:
-        username: ${{ secrets.DOCKER_USER }}
-        password: ${{ secrets.DOCKER_PWD }}
-
+        submodules: 'recursive'
+        ref: ${{ env.GITHUB_SHA }}
     - name: Setup Docker CLI
       uses: docker/setup-docker-cli@v2
+      with:
+        version: latest
 
-    - name: Configure Docker Buildx
+    - name: Configure Docker CLI for multi-arch build
       run: |
-        docker buildx create --name mybuilder
-        docker buildx use mybuilder
+        echo ${{ secrets.DOCKER_PWD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
+        docker buildx create --use --name multiarch
+        docker buildx inspect --bootstrap
 
     - name: Build Docker Image
       run: |
         docker buildx build \
-        --push \
         --platform linux/amd64,linux/arm64,linux/arm/v7 \
-        -t ${{ secrets.DOCKER_USER }}/testghaction:latest \
-        -t ${{ secrets.DOCKER_USER }}/testghaction:latest-${{ env.GITHUB_SHA_SHORT }} \
+        --tag ${{ secrets.DOCKER_USER }}/image-name:latest \
+        --tag ${{ secrets.DOCKER_USER }}/image-name:latest-${{ env.GITHUB_SHA_SHORT }} \
+        --push \
         .
+
+    - name: Clean up Docker CLI
+      run: |
+        docker buildx rm multiarch
