@@ -42,8 +42,6 @@ jobs:
             --build-arg GITHUB_SHA=${{ env.GITHUB_SHA }}
             --build-arg BUILD_DATE=${{ env.BUILD_DATE }}
             --build-arg VCS_REF=${{ env.VCS_REF }}
-
-      - name: Publish to Docker Hub
-        run: |
-          echo "${{ secrets.DOCKER_PWD }}" | docker login -u "${{ secrets.DOCKER_USER }}" --password-stdin
-          docker push DockerHub/ghactiontest:latest
+          run: |
+            echo "${{ secrets.DOCKER_PWD }}" | docker login -u "${{ secrets.DOCKER_USER }}" --password-stdin
+            docker push DockerHub/ghactiontest:latest
