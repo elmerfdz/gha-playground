@@ -1,4 +1,4 @@
-name: Docker Build
+name: Build and Push Docker Image
 
 on:
   push:
@@ -9,39 +9,30 @@ on:
   workflow_dispatch:
 
 env:
-  GITHUB_SHA: ${{ env.GITHUB_SHA }}
-  GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA | cut -c1-7 }}
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PWD: ${{ secrets.DOCKER_PWD }}
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-      with:
-        submodules: 'recursive'
-        ref: ${{ env.GITHUB_SHA }}
+
     - name: Setup Docker CLI
       uses: docker/setup-docker-cli@v2
       with:
-        version: latest
+        docker-version: latest
 
-    - name: Configure Docker CLI for multi-arch build
-      run: |
-        echo ${{ secrets.DOCKER_PWD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
-        docker buildx create --use --name multiarch
-        docker buildx inspect --bootstrap
+    - name: Login to Docker Hub
+      run: echo "$DOCKER_PWD" | docker login -u "$DOCKER_USER" --password-stdin
 
     - name: Build Docker Image
       run: |
-        docker buildx build \
-        --platform linux/amd64,linux/arm64,linux/arm/v7 \
-        --tag ${{ secrets.DOCKER_USER }}/image-name:latest \
-        --tag ${{ secrets.DOCKER_USER }}/image-name:latest-${{ env.GITHUB_SHA_SHORT }} \
-        --push \
-        .
-
-    - name: Clean up Docker CLI
+        docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 --tag $DOCKER_USER/image:latest --tag $DOCKER_USER/image:${{ env.GITHUB_SHA }} .
+        
+    - name: Push Docker Image
       run: |
-        docker buildx rm multiarch
+        docker push $DOCKER_USER/image:latest
+        docker push $DOCKER_USER/image:${{ env.GITHUB_SHA }}
