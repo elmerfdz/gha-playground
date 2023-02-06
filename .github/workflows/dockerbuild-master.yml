@@ -46,4 +46,4 @@ jobs:
       - name: Publish to Docker Hub
         run: |
           echo "${{ secrets.DOCKER_PWD }}" | docker login -u "${{ secrets.DOCKER_USER }}" --password-stdin
-          docker push ghactiontest:latest
+          docker push DockerHub/ghactiontest:latest
