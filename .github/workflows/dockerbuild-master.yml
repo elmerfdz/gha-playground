@@ -1,15 +1,18 @@
-name: Docker Build Master
+name: Build and Push Docker Image
 
 on:
   push:
     branches:
       - main
   schedule:
-    - cron: '00 0 * * 6'
+    - cron: '0 0 * * 6'
   workflow_dispatch:
 
 env:
-  GITHUB_SHA: ${{ github.sha }}
+  DOCKER_CLI_EXPERIMENTAL: enabled
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PWD: ${{ secrets.DOCKER_PWD }}
+  GITHUB_SHA_SHORT: ${{ short_sha }}
 
 jobs:
   build:
@@ -19,19 +22,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up Docker
-      uses: docker/setup-docker@v2
+    - name: Docker setup
+      uses: docker/setup-docker@v2021-06-22
       with:
-        registry: docker.io
+        docker-version: 19.03.13
 
-    - name: Login to DockerHub
+    - name: Docker Login
       uses: docker/login-action@v1
       with:
-        username: ${{ secrets.DOCKER_USER }}
-        password: ${{ secrets.DOCKER_PWD }}
+        username: ${{ env.DOCKER_USER }}
+        password: ${{ env.DOCKER_PWD }}
 
-    - name: Build and Push Docker Image
+    - name: Build Docker Image
       run: |
-        export GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c1-7)
-        docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t ${{ secrets.DOCKER_USER }}/my-image:latest -t ${{ secrets.DOCKER_USER }}/my-image:latest-$GITHUB_SHA_SHORT .
-        docker push ${{ secrets.DOCKER_USER }}/my-image
+        docker buildx build \
+        --platform linux/amd64,linux/arm64,linux/arm/v7 \
+        -t $DOCKER_USER/image:latest \
+        -t $DOCKER_USER/image:latest-$GITHUB_SHA_SHORT \
+        --push .
+
+    - name: Clean up
+      run: |
+        docker system prune -af
