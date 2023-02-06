@@ -1,14 +1,16 @@
-name: Build and Push Docker Image
+name: Docker Build and Push
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+  schedule:
+    - cron: '00 0 * * 6'
 
 env:
-  DOCKER_CLI_EXPERIMENTAL: enabled
-  DOCKER_BUILDKIT: 1
+  IMAGE_NAME: ghactiontest
+  RANDOM_TAG: ${{ env.GITHUB_SHA | sha256sum | cut -c1-7 }}
 
 jobs:
   build:
@@ -17,46 +19,40 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-      with:
-        submodules: recursive
-        ref: main
-    - name: Setup Docker CLI
-      uses: docker/setup-docker@v2
-      with:
-        version: latest
+
+    - name: Configure Docker CLI
+      uses: docker/setup-docker@v21.0.0
 
     - name: Build Docker Image
       uses: docker/build-push-action@v2
       with:
-        push: true
-        tags: |
-          ghactiontest:latest
-          ghactiontest-${{ env.random_string }}:latest
         context: .
-        platform: |
-          linux/amd64
-          linux/arm64
-          linux/arm/v7
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v1
-      with:
+        tags: "${{ env.IMAGE_NAME }}:latest,${{ env.IMAGE_NAME }}:latest-${{ env.RANDOM_TAG }}"
+        push: true
+        push-with-registry: docker.io
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PWD }}
+        build-args: |
+          --build-arg IMAGE_NAME=${{ env.IMAGE_NAME }}
+          --build-arg RANDOM_TAG=${{ env.RANDOM_TAG }}
 
-    - name: Generate random string
-      id: random_string
-      run: echo "random_string=$(date +%s | shasum | base64 | head -c 10)" >> env.env
-
-    - name: Set env var
-      uses: actions/set-env@v1
+    - name: Set ARCHS environment variable
+      uses: actions/set-env@v2
       with:
-        env: env.env
+        name: ARCHS
+        value: linux/amd64,linux/arm64,linux/arm/v7
 
-    - name: Push Docker Image
-      uses: docker/push-action@v1
+    - name: Set UP_TO_DATE environment variable
+      uses: actions/set-env@v2
       with:
-        tags: |
-          ghactiontest:latest
-          ghactiontest-${{ env.random_string }}:latest
+        name: UP_TO_DATE
+        value: true
+  
+    - name: Login to DockerHub
+      run: |
+        echo ${{ secrets.DOCKER_PWD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
 
+    - name: Docker Build and Push
+      run: |
+        buildx create --use
+        buildx build --platform $ARCHS --push -t $IMAGE_NAME:latest -t $IMAGE_NAME:latest-$RANDOM_TAG .
