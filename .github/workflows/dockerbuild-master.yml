@@ -2,10 +2,11 @@ name: Docker Image Build and Push
 
 on:
   push:
+    paths-ignore:
+      - 'README.md'
+      - '.github/workflows/*'      
     branches:
       - main
-  schedule:
-    - cron: '0 0 * * 6'
   workflow_dispatch:
 
 env:
