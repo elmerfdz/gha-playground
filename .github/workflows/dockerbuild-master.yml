@@ -9,8 +9,6 @@ on:
 env:
   IMAGE_NAME: gha-playground
   IMAGE_TAG: master
-
-env:
   GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA_SHORT }}
 
 jobs:
