@@ -13,6 +13,8 @@ on:
 env:
   IMAGE_NAME: gha-playground
   IMAGE_TAG: master
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}  
 
 jobs:
   build-push:
