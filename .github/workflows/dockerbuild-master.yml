@@ -1,4 +1,4 @@
-name: Docker Build
+name: Docker Build and Push
 
 on:
   push:
@@ -9,9 +9,14 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_CLI_EXPERIMENTAL: enabled
-  DOCKER_USER: ${{ secrets.DOCKER_USER }}
-  DOCKER_PWD: ${{ secrets.DOCKER_PWD }}
+  GITHUB_SHA: ${{ env.GITHUB_SHA }}
+  GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA | cut -c1-7 }}
+
+ignore:
+  paths:
+    - README.md
+    - .github/workflows/*
+    - Dockerfile
 
 jobs:
   build:
@@ -21,24 +26,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Configure Docker CLI
-      uses: docker/setup-docker-cli@v1
+    - name: Docker Login
+      uses: docker/login-action@v1
       with:
-        docker-version: 19.03
+        username: ${{ secrets.DOCKER_USER }}
+        password: ${{ secrets.DOCKER_PWD }}
 
-    - name: Login to Docker Hub
+    - name: Setup Docker CLI
+      uses: docker/setup-docker-cli@v2
+
+    - name: Configure Docker Buildx
       run: |
-        echo ${DOCKER_PWD} | docker login -u ${DOCKER_USER} --password-stdin
+        docker buildx create --name mybuilder
+        docker buildx use mybuilder
 
-    - name: Build and Push Docker Image
+    - name: Build Docker Image
       run: |
         docker buildx build \
-          --platform linux/amd64,linux/arm64,linux/arm/v7 \
-          -t ${DOCKER_USER}/image:latest \
-          -t ${DOCKER_USER}/image:latest-${{ env.GITHUB_SHA_SHORT }} \
-          --push \
-          .
-
-    - name: Clean up
-      run: |
-        docker system prune -f
+        --push \
+        --platform linux/amd64,linux/arm64,linux/arm/v7 \
+        -t ${{ secrets.DOCKER_USER }}/testghaction:latest \
+        -t ${{ secrets.DOCKER_USER }}/testghaction:latest-${{ env.GITHUB_SHA_SHORT }} \
+        .
