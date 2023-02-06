@@ -1,50 +1,37 @@
-name: Docker Image Build and Push
+name: Build and Push Docker Image
 
 on:
   push:
-    paths-ignore:
-      - 'README.md'
-      - '.github/workflows/*'
-      - 'Dockerfile'
     branches:
       - main
+  workflow_dispatch:
 
 env:
-  DOCKER_CLI_EXPERIMENTAL: enabled
-  IMAGE_NAME: my_image
-  GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA | shorten }}
+  GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA }}
+  IMAGE_NAME: gha-playground
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Set up Docker
-        uses: docker/setup-docker-action@v1
+    - name: Configure Docker BuildX
+      run: |
+        export DOCKER_CLI_EXPERIMENTAL=enabled
+        echo "${{ env.DOCKER_PASS }}" | docker login -u "${{ env.DOCKER_USER }}" --password-stdin
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PWD }}
+    - name: Build Docker Image
+      run: |
+        docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
+                            -t "${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}:master" \
+                            -t "${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}:master-$GITHUB_SHA_SHORT" \
+                            --push .
 
-      - name: Build Multi-Arch Docker Image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          tags: ${{ env.IMAGE_NAME }}:latest,${{ env.IMAGE_NAME }}:${{ env.GITHUB_SHA_SHORT }}
-          build-args: |
-            --platform linux/amd64,linux/arm64,linux/arm/v7
-            --progress plain
-            --build-arg GITHUB_SHA=${{ env.GITHUB_SHA }}
-            --build-arg BUILD_DATE=${{ env.BUILD_DATE }}
-            --build-arg VCS_REF=${{ env.VCS_REF }}
+    - name: Push Docker Image
+      run: |
+        docker push "${{ env.DOCKER_USER }}/image-name:master"
+        docker push "${{ env.DOCKER_USER }}/image-name:master-$GITHUB_SHA_SHORT"
 
-      - name: Publish to Docker Hub
-        run: |
-          docker push ${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.IMAGE_NAME }}:${{ env.GITHUB_SHA_SHORT }}
