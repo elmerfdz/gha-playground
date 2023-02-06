@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  GITHUB_SHA_SHORT: ${{ env.SHA }}
+  GITHUB_SHA_SHORT: ${{ env.GITHUB_SHA_SHORT }}
 
 jobs:
   build:
